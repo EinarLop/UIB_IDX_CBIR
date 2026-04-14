@@ -63,7 +63,16 @@ def compute_lbp_descriptor(img, p = 8, r = 1):
     """    
     
     # YOUR CODE HERE
-    raise NotImplementedError()
+    gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    
+    lbp = skfeat.local_binary_pattern(gray_img, p, r, method="uniform")
+    lbp = lbp.astype(np.float32)
+
+    hist_lbp = cv2.calcHist([lbp], [0], None, [p+2], [0, p+2])
+    cv2.normalize(hist_lbp, hist_lbp, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+
+
+    return hist_lbp.flatten()
     # -----
 
 
