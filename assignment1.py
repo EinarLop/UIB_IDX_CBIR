@@ -75,6 +75,50 @@ def compute_lbp_descriptor(img, p = 8, r = 1):
     return hist_lbp.flatten()
     # -----
 
+def compute_global_lbp_descriptor(img, p=8, r=1, grid_x=4, grid_y=4):
+    """
+    Compute a spatial LBP histogram by dividing the image into a grid.
+
+    - img: Input image (Numpy array)
+    - p: Neighbors to check in radius r
+    - r: Radius in pixels
+    - grid_x: width grid 
+    - grid_y: height grid
+
+    RETURN: 
+    - Concatenated list with grid histograms
+    """
+    gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    
+    lbp = skfeat.local_binary_pattern(gray_img, p, r, method="uniform")
+    lbp = lbp.astype(np.float32)
+
+    h, w = lbp.shape
+    cell_h = h // grid_y
+    cell_w = w // grid_x
+    
+    histograms = []
+
+    for i in range(grid_y):
+        for j in range(grid_x):
+
+            # Define cell
+            cell = lbp[i*cell_h : (i+1)*cell_h, j*cell_w : (j+1)*cell_w]
+            
+            # Hist cell
+            curr_hist = cv2.calcHist([cell], [0], None, [p + 2], [0, p + 2])
+            
+            # Normalize
+            cv2.normalize(curr_hist, curr_hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+            
+            # Flatten
+            histograms.append(curr_hist.flatten())
+
+    # Concat
+    global_descriptor = np.concatenate(histograms)
+    
+    return global_descriptor
+
 
 class CBIR:
     """
@@ -153,9 +197,23 @@ def extract_interest_points(img, feat_type = 'SIFT', nfeats = 500, thresh = 50):
     des = []
 
     # YOUR CODE HERE
-    raise NotImplementedError()
-    # -----
-    
+
+    gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
+    match feat_type:
+        case 'SIFT':
+            sift = cv2.SIFT_create(nfeatures=nfeats)
+            kp, des = sift.detectAndCompute(gray_img,None)
+        case 'FAST_BRIEF':
+            fast = cv2.FastFeatureDetector_create(threshold=thresh)
+            brief = cv2.xfeatures2d.BriefDescriptorExtractor_create()
+            kp = fast.detect(gray_img,None)
+            kp, des = brief.compute(gray_img, kp)
+        case 'ORB':
+            orb = cv2.ORB_create(nfeatures=nfeats, fastThreshold=thresh)
+            kp = orb.detect(gray_img,None)
+            kp, des = orb.compute(gray_img, kp)
+
     return kp, des
     
     
@@ -175,11 +233,23 @@ def find_matches(query_desc, database_desc, k=2):
     - matches (list of list of cv2.DMatch): A list where each element contains k matches,
       sorted by distance.
     """
+    matches = []
 
-    # YOUR CODE HERE
-    raise NotImplementedError()
+    # FLANN-based matching
+    # SIFT
+    if query_desc.dtype == np.float32:
+        flann_matcher = cv2.FlannBasedMatcher()
+        matches = flann_matcher.knnMatch(query_desc, database_desc, k=k)
+
+    # Brute-Force matching
+    # ORB, BRIEF
+    elif query_desc.dtype == np.uint8:
+        bf_matcher = cv2.BFMatcher_create(normType=cv2.NORM_HAMMING, crossCheck=False)
+        matches = bf_matcher.knnMatch(query_desc, database_desc, k=k)
+    
+    matches = sorted(matches, key=lambda x: x[0].distance)
+    return matches
     # ------
-
 
 def filter_matches(matches, ratio=0.75):
     """
@@ -196,7 +266,16 @@ def filter_matches(matches, ratio=0.75):
     """
 
     # YOUR CODE HERE
-    raise NotImplementedError()
+
+    filtered_matches = []
+    
+    for match in matches:
+        if len(match) >= 2:
+            m, n = match[0], match[1]
+            if m.distance < ratio * n.distance:
+                filtered_matches.append(m)
+            
+    return filtered_matches
     # -----
 
 

@@ -1,3 +1,4 @@
 holidays_mini
 __pycache__
 .DS_Store
+.vscode
