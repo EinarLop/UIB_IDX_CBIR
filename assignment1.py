@@ -102,16 +102,12 @@ def compute_global_lbp_descriptor(img, p=8, r=1, grid_x=4, grid_y=4):
     for i in range(grid_y):
         for j in range(grid_x):
 
-            # Define cell
             cell = lbp[i*cell_h : (i+1)*cell_h, j*cell_w : (j+1)*cell_w]
             
-            # Hist cell
             curr_hist = cv2.calcHist([cell], [0], None, [p + 2], [0, p + 2])
             
-            # Normalize
             cv2.normalize(curr_hist, curr_hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
             
-            # Flatten
             histograms.append(curr_hist.flatten())
 
     # Concat
@@ -195,6 +191,7 @@ def extract_interest_points(img, feat_type = 'SIFT', nfeats = 500, thresh = 50):
     """
     kp = []
     des = []
+
 
     # YOUR CODE HERE
 
@@ -294,9 +291,41 @@ def evaluate(dataset, method='SIFT', nfeats=3000, thresh=25, ratio=0.75):
     Returns:
         float: The mean Average Precision (mAP) score for the retrieval system.
     """
-    
+
     # YOUR CODE HERE
-    raise NotImplementedError()
+
+    query_images = dataset.get_query_images()
+    database_images = dataset.get_database_images()
+
+    db_features = {}
+    for db_image in database_images:
+        db_img_array = dataset.get_image(db_image)
+        _, db_des = extract_interest_points(db_img_array, method, nfeats, thresh)
+        db_features[db_image] = db_des
+
+    mAP_dict = {}
+
+    for query_image in query_images:
+        query_img_array = dataset.get_image(query_image)
+        query_kp, query_des = extract_interest_points(query_img_array, method, nfeats, thresh)
+        
+        current_scores = []
+        
+        for database_image in database_images:
+            database_des = db_features[database_image]
+            
+            if query_des is not None and database_des is not None and len(query_des) > 0 and len(database_des) > 0:
+                raw_matches = find_matches(query_des, database_des)
+                matches = filter_matches(raw_matches, ratio)
+                num_matches = len(matches)
+                current_scores.append((database_image, num_matches))
+            else:
+                current_scores.append((database_image, 0))
+                
+        current_scores.sort(key=lambda x: x[1], reverse=True)
+        mAP_dict[query_image] = [img for img, _ in current_scores]
+
+    return dataset.compute_mAP(mAP_dict)
     # -----
 
 
