@@ -146,7 +146,8 @@ class CBIR:
         """        
 
         # YOUR CODE HERE
-        raise NotImplementedError()
+        for image_name, img in images.items():
+            self.image_descriptors[image_name] = self.desc_func(img, **self.params)
         # -----
             
     def search_image(self, query_descriptor):
@@ -167,7 +168,11 @@ class CBIR:
         results = []
 
         # YOUR CODE HERE
-        raise NotImplementedError()
+        for image_name, descriptor in self.image_descriptors.items():
+            distance = np.linalg.norm(query_descriptor - descriptor)
+            results.append((image_name, distance))
+
+        results.sort(key=lambda x: x[1])
         # -----
 
         return results
