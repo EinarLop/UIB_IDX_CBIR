@@ -387,7 +387,20 @@ class CNNFeatureExtractor:
             return np.zeros(2048)
 
         # YOUR CODE HERE
-        raise NotImplementedError()
+        input_tensor = self.preprocess(input_image)
+        input_batch = input_tensor.unsqueeze(0) # type: ignore
+
+        with torch.no_grad():
+            output = self.model(input_batch)
+
+        feature_vector = output.squeeze().numpy()
+
+        # L2 normalization: divide by the vector's Euclidean norm
+        norm = np.linalg.norm(feature_vector)
+        if norm > 0:
+            feature_vector = feature_vector / norm
+
+        return feature_vector
         # -----
 
 
@@ -436,5 +449,18 @@ class ViTFeatureExtractor:
             return np.zeros(768)
         
         # YOUR CODE HERE
-        raise NotImplementedError()
+        input_tensor = self.preprocess(input_image)       # Apply ViT-specific transforms → shape (3, 224, 224)
+        input_batch = input_tensor.unsqueeze(0)           # Add batch dimension → shape (1, 3, 224, 224)
+
+        with torch.no_grad():                             # Disable gradient computation (inference only)
+            output = self.model(input_batch)              # Forward pass through ViT-B/16 (heads replaced with Identity)
+
+        feature_vector = output.squeeze().numpy()         # Remove batch dimension → shape (768,)
+
+        # L2 normalization
+        norm = np.linalg.norm(feature_vector)
+        if norm > 0:
+            feature_vector = feature_vector / norm
+
+        return feature_vector
         # -----
